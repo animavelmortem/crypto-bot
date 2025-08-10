@@ -16,7 +16,7 @@ ADMIN_ID = 7427253214
 ADMIN_USERNAME = "Trading_Radar_Admin"
 CHANNEL_ID = '-1002409235086'
 SPREADSHEET_ID = '1fiVru2r6gAo5i8xiPTG7-RnvG43K4H5zevlk53MqjQs' # ID твоей таблицы
-CHANNEL_LINK = 'https://t.me/+LjoBlLMpuIkzMDdi' # Новая переменная для ссылки
+CHANNEL_LINK = 'https://t.me/+4e4iE3Tda1YyYzQy' # Новая ссылка на твой канал
 
 # Настройка логирования
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
