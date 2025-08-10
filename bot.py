@@ -1,4 +1,4 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes, ConversationHandler, ChatJoinRequestHandler
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -72,6 +72,12 @@ async def handle_join_request(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
+    
+    # Отправка ReplyKeyboardMarkup с кнопкой "Старт"
+    reply_keyboard = [["Старт"]]
+    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True)
+    await update.message.reply_text("Добро пожаловать! Нажмите 'Старт' чтобы начать.", reply_markup=markup)
+    
     await load_existing_users()
 
     # Проверка, заполнял ли пользователь анкету
@@ -83,12 +89,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
             "Вы уже заполняли анкету. Хотите изменить данные или связаться с админом?",
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            reply_to_message_id=update.message.message_id
         )
         return ConversationHandler.END
 
     # Проверка подписки
-    checking_message = await update.message.reply_text("🔍 Проверяю подписку...")
+    checking_message = await update.message.reply_text("🔍 Проверяю подписку...", reply_markup=ReplyKeyboardRemove())
     await asyncio.sleep(1)
     if await check_subscription(context, update.message.from_user.id):
         await checking_message.delete()
@@ -99,7 +106,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "🚀 Добро пожаловать в мир крипты и трейдинга!\n\n"
             "Для начала заполните анкету, чтобы я лучше понимал вашу ситуацию.",
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            reply_to_message_id=update.message.message_id
         )
     else:
         await checking_message.delete()
@@ -110,7 +118,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
             "🚫 Сначала подпишитесь на канал, чтобы продолжить.",
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            reply_to_message_id=update.message.message_id
         )
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -118,6 +127,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     user_id = str(query.from_user.id)
+    
+    # Проверка подписки для всех кнопок, требующих доступ
+    if query.data in ['start_survey', 'edit_survey']:
+        checking_message = await query.message.reply_text("🔍 Проверяю подписку...")
+        await asyncio.sleep(1)
+        if not await check_subscription(context, query.from_user.id):
+            await checking_message.delete()
+            keyboard = [
+                [InlineKeyboardButton("📌 Подписаться на канал", url=CHANNEL_LINK)],
+                [InlineKeyboardButton("🔄 Проверить подписку", callback_data='check_subscription')]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.message.reply_text("🚫 Вы не подписаны. Подпишитесь и попробуйте снова.", reply_markup=reply_markup)
+            return ConversationHandler.END # Останавливаем разговор, пока не будет подписки
+        await checking_message.delete()
+    
     if query.data == 'check_subscription':
         checking_message = await query.message.reply_text("🔍 Проверяю подписку...")
         await asyncio.sleep(1)
@@ -133,6 +158,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.message.reply_text("🚫 Вы не подписаны. Подпишитесь и попробуйте снова.", reply_markup=reply_markup)
+            return ConversationHandler.END
 
     elif query.data in ['start_survey', 'edit_survey']:
         await load_existing_users()
@@ -186,7 +212,7 @@ async def ask_deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
-    if not text.isdigit() or int(text) < 15: # <--- ИЗМЕНЕНИЕ ЗДЕСЬ
+    if not text.isdigit() or int(text) < 15:
         await update.message.reply_text("⚠️ Пожалуйста, введите возраст числом (не менее 15 лет).")
         return ASK_AGE
 
@@ -223,7 +249,7 @@ async def ask_trade_exp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("✏️ Исправить", callback_data='edit_data')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(profile, reply_markup=reply_markup)
+    await update.message.reply_text(profile, reply_markup=reply_markup, reply_to_message_id=update.message.message_id)
     return CONFIRM
 
 async def save_data(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: str, user):
@@ -295,7 +321,7 @@ async def save_data(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id:
         logger.error(f"Ошибка сохранения в CSV: {e}")
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🚫 Анкета отменена.")
+    await update.message.reply_text("🚫 Анкета отменена.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 def main():
@@ -307,9 +333,13 @@ def main():
 
     # Обработчик заявок на вступление в канал
     app.add_handler(ChatJoinRequestHandler(callback=handle_join_request))
+    
+    # Обработчик для команды /start и кнопки "Старт"
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.Regex("^Старт$"), start))
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start), CallbackQueryHandler(button_handler, pattern='start_survey|check_subscription|edit_survey|confirm_data|edit_data')],
+        entry_points=[CallbackQueryHandler(button_handler, pattern='start_survey|check_subscription|edit_survey|confirm_data|edit_data')],
         states={
             ASK_DEPOSIT: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_deposit)],
             ASK_AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_age)],
