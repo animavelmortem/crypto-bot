@@ -16,7 +16,7 @@ ADMIN_ID = 7427253214
 ADMIN_USERNAME = "Trading_Radar_Admin"
 CHANNEL_ID = '-1002409235086'
 SPREADSHEET_ID = '1fiVru2r6gAo5i8xiPTG7-RnvG43K4H5zevlk53MqjQs' # ID твоей таблицы
-CHANNEL_LINK = 'https://t.me/+4e4iE3Tda1YyYzQy' # Новая ссылка на твой канал
+CHANNEL_LINK = 'https://t.me/+4e4iE3Tda1YyYzQy' # Ссылка на твой канал
 
 # Настройка логирования
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -186,8 +186,8 @@ async def ask_deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
-    if not text.isdigit() or int(text) < 18:
-        await update.message.reply_text("⚠️ Пожалуйста, введите возраст числом (не менее 18 лет).")
+    if not text.isdigit() or int(text) < 15: # <--- ИЗМЕНЕНИЕ ЗДЕСЬ
+        await update.message.reply_text("⚠️ Пожалуйста, введите возраст числом (не менее 15 лет).")
         return ASK_AGE
 
     context.user_data['age'] = text
